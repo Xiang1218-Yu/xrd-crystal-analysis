@@ -1,0 +1,14 @@
+{
+  "crystal_system": "cubic",
+  "wavelength": {"value": 1.5406, "unit": "angstrom"},
+  "candidate_hkls": [[1, 1, 1], [2, 0, 0], [2, 2, 0], [3, 1, 1], [2, 2, 2]],
+  "lattice_parameter_bounds_angstrom": [3.4, 3.8],
+  "outlier_tolerance": 0.08,
+  "peaks": [
+    {"id": "p111", "two_theta_deg": 43.297, "intensity": 100.0},
+    {"id": "p200", "two_theta_deg": 50.433, "intensity": 70.0},
+    {"id": "p220", "two_theta_deg": 74.130, "intensity": 45.0},
+    {"id": "p311", "two_theta_deg": 89.940, "intensity": 22.0},
+    {"id": "p-outlier", "two_theta_deg": 61.000, "intensity": 6.0}
+  ]
+}
