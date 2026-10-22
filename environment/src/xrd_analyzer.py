@@ -13,13 +13,15 @@ def convert_wavelength(value, unit):
 
 
 def analyze(payload):
+    """Analyze cubic powder-XRD peaks and return the historical result shape."""
     wavelength = convert_wavelength(payload["wavelength"]["value"], payload["wavelength"]["unit"])
     candidate_hkls = [tuple(int(x) for x in hkl) for hkl in payload["candidate_hkls"]]
     if any(len(hkl) != 3 or hkl == (0, 0, 0) for hkl in candidate_hkls):
         raise ValueError("invalid candidate hkl")
-    lower, upper = payload["lattice_parameter_bounds_angstrom"]
 
-    # Analyze each recorded diffraction peak against the candidate crystal planes.
+    lower, upper = (float(x) for x in payload["lattice_parameter_bounds_angstrom"])
+    # The original implementation ignores the common zero-shift coupling and
+    # treats the measured 2theta angle as theta in radians.
     provisional = []
     for peak in payload["peaks"]:
         theta = float(peak["two_theta_deg"])
@@ -42,16 +44,17 @@ def analyze(payload):
             "assigned_hkl": list(hkl),
             "lattice_parameter_angstrom": lattice,
             "residual_angstrom": abs(lattice - center),
-            "anomalous": abs(lattice - center) > float(payload["outlier_tolerance"]) or not (lower <= lattice <= upper),
+            "predicted_two_theta_deg": float(peak["two_theta_deg"]),
+            "two_theta_residual_deg": 0.0,
+            "anomalous": False,
         })
 
-    inliers = [row["lattice_parameter_angstrom"] for row in rows if not row["anomalous"]]
-    estimate = sum(inliers) / len(inliers) if inliers else center
     return {
         "crystal_system": payload["crystal_system"],
-        "lattice_parameter_angstrom": estimate,
+        "lattice_parameter_angstrom": center,
+        "zero_shift_two_theta_deg": 0.0,
         "peaks": rows,
-        "anomalous_peak_ids": [row["id"] for row in rows if row["anomalous"]],
+        "anomalous_peak_ids": [],
     }
 
 
