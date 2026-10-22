@@ -16,6 +16,7 @@ memory_mb = 2048
 storage_mb = 4096
 gpus = 0
 allow_internet = true
+network_mode = "public"
 
 [verifier]
 timeout_sec = 300
@@ -25,4 +26,3 @@ difficulty = "expert"
 category = "chemistry-materials"
 tags = ["python", "x-ray-diffraction", "cubic-crystal", "scientific-computing"]
 expert_time_estimate = "4h"
-

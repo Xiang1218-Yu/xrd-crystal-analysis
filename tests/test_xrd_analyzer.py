@@ -153,12 +153,24 @@ def test_no_fcc_allowed_candidate_is_rejected():
     data = payload()
     data["candidate_hkls"] = FORBIDDEN
     with tempfile.TemporaryDirectory() as directory:
-        source = Path(directory) / "input.json"
-        output = Path(directory) / "output.json"
-        source.write_text(json.dumps(data))
-        process = subprocess.run([sys.executable, str(analyzer()), "--input", str(source), "--output", str(output)], capture_output=True, text=True)
-    assert process.returncode != 0
-    assert "no FCC-allowed candidate hkl" in process.stderr
+        root = Path(directory)
+        source = root / "input.json"
+        output = root / "output.json"
+        sentinel = b'{"status":"previous-valid-result"}\n'
+        source.write_text(json.dumps(data), encoding="utf-8")
+        output.write_bytes(sentinel)
+
+        process = subprocess.run(
+            [sys.executable, str(analyzer()), "--input", str(source), "--output", str(output)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        assert process.returncode != 0
+        assert "no FCC-allowed candidate hkl" in process.stderr
+        assert output.read_bytes() == sentinel
+        assert {path.name for path in root.iterdir()} == {source.name, output.name}
 
 
 def test_residual_only_nearby_peak_is_anomalous():
@@ -280,5 +292,6 @@ def test_zero_wavelength_rejection_preserves_existing_output_and_leaves_no_temp_
         )
 
         assert completed.returncode != 0
+        assert "wavelength must be a finite positive number" in completed.stderr
         assert output.read_text(encoding="utf-8") == sentinel
         assert not list(root.glob(".result.json.*.tmp"))
