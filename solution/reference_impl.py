@@ -2,6 +2,8 @@
 import argparse
 import json
 import math
+import os
+import tempfile
 from pathlib import Path
 
 
@@ -12,8 +14,8 @@ def convert_wavelength(value, unit):
     if unit not in UNITS:
         raise ValueError(f"unsupported wavelength unit: {unit}")
     value = float(value)
-    if value <= 0:
-        raise ValueError("wavelength must be positive")
+    if not math.isfinite(value) or value <= 0:
+        raise ValueError("wavelength must be a finite positive number")
     return value * UNITS[unit]
 
 
@@ -171,12 +173,33 @@ def analyze(payload):
     return {"crystal_system": payload["crystal_system"], "structure": payload["structure"], "lattice_parameter_angstrom": float(lattice), "zero_shift_two_theta_deg": float(shift), "crystallite_size_nm": size_estimate, "peaks": rows, "anomalous_peak_ids": [row["id"] for row in rows if row["anomalous"]]}
 
 
+def write_json_atomically(output_path, result):
+    target = Path(output_path)
+    encoded = json.dumps(result, indent=2, sort_keys=True, allow_nan=False) + "\n"
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{target.name}.", suffix=".tmp", dir=target.parent, text=True
+    )
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            handle.write(encoded)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary_name, target)
+    except BaseException:
+        try:
+            os.unlink(temporary_name)
+        except FileNotFoundError:
+            pass
+        raise
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", required=True)
     parser.add_argument("--output", required=True)
     args = parser.parse_args()
-    Path(args.output).write_text(json.dumps(analyze(json.loads(Path(args.input).read_text())), indent=2, sort_keys=True) + "\n")
+    result = analyze(json.loads(Path(args.input).read_text(encoding="utf-8")))
+    write_json_atomically(args.output, result)
 
 
 if __name__ == "__main__":

@@ -258,3 +258,27 @@ def test_input_order_is_preserved_when_peaks_are_reordered():
     result = run(data)
     assert [row["id"] for row in result["peaks"]] == [peak["id"] for peak in data["peaks"]]
     assert result["lattice_parameter_angstrom"] == pytest.approx(3.61, abs=0.015)
+
+def test_zero_wavelength_rejection_preserves_existing_output_and_leaves_no_temp_file():
+    """题面原文：“`value` 为 `0` 时必须拒绝，且不得创建、覆盖或留下半截的目标输出 JSON。”"""
+    data = payload()
+    data["wavelength"]["value"] = 0
+
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        source = root / "invalid-zero-wavelength.json"
+        output = root / "result.json"
+        sentinel = '{"status":"previous-valid-result"}\n'
+        source.write_text(json.dumps(data), encoding="utf-8")
+        output.write_text(sentinel, encoding="utf-8")
+
+        completed = subprocess.run(
+            [sys.executable, str(analyzer()), "--input", str(source), "--output", str(output)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        assert completed.returncode != 0
+        assert output.read_text(encoding="utf-8") == sentinel
+        assert not list(root.glob(".result.json.*.tmp"))

@@ -12,7 +12,7 @@ python3 src/xrd_analyzer.py --input examples/peaks.json --output /tmp/xrd-result
 
 ## 输入约定
 
-- `wavelength` 包含数值 `value` 和单位 `unit`。支持 `angstrom`、`nm`、`pm`；内部物理计算统一使用 Å。
+- `wavelength` 包含数值 `value` 和单位 `unit`。支持 `angstrom`、`nm`、`pm`；内部物理计算统一使用 Å。`value` 必须是有限正数；值为 `0`、负数、NaN 或无穷大时必须拒绝。
 - `crystal_system` 固定为 `cubic`；`structure` 固定为 `fcc`，表示样品主相遵循面心立方反射选择规则。
 - `peaks` 中每项至少包含 `id`、`two_theta_deg`、`fwhm_deg` 和 `intensity`。前两个量和 FWHM 都以 2θ 的度数表示；强度只作原样保留，不能替代结构或几何判定。
 - `candidate_hkls` 是候选晶面指数数组。每项由三个非负整数组成；`(0, 0, 0)` 无效。
@@ -42,6 +42,7 @@ python3 src/xrd_analyzer.py --input examples/peaks.json --output /tmp/xrd-result
   - `crystallite_size_nm`：单峰 Scherrer 尺寸；无有效结果时为 `null`；
   - `anomalous`：布尔值；
 - `anomalous_peak_ids`：所有异常峰 ID，顺序与输入一致。
+- 输入校验、物理拟合或 JSON 序列化失败时，命令行必须以非零状态退出，且不得创建、覆盖或留下半截的目标输出 JSON。成功写出时应先完整生成结果并以原子替换方式提交目标文件。
 
 ## 科学与行为约束
 

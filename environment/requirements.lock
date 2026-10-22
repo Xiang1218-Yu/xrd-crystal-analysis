@@ -1,4 +1,6 @@
-# Fully pinned verifier dependencies with wheel hashes for reproducible installation.
+# Complete, resolved and hash-locked Python dependency set for this Linux image.
+# Every package installed by pip is listed here at an exact version; --no-deps
+# prevents runtime dependency resolution from introducing floating packages.
 iniconfig==2.3.0 \
     --hash=sha256:f631c04d2c48c52b84d0d0549c99ff3859c98df65b3101406327ecc7d53fbf12
 packaging==26.2 \
