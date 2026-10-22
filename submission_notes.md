@@ -1,0 +1,6 @@
+# Submission Notes
+
+题目类型：D 科学计算 → 化学与材料
+分类标识：chemistry-materials
+
+本题要求修复 FCC 金属粉末 X 射线衍射分析器，涉及布拉格定律、FCC 消光规则、公共晶格参数与仪器零点偏移联合拟合、仪器展宽校正和 Scherrer 尺寸估计。
