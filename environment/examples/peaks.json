@@ -1,16 +1,19 @@
 {
   "crystal_system": "cubic",
+  "structure": "fcc",
   "wavelength": {"value": 1.5406, "unit": "angstrom"},
-  "candidate_hkls": [[1, 1, 1], [2, 0, 0], [2, 2, 0], [3, 1, 1], [2, 2, 2], [4, 0, 0]],
+  "candidate_hkls": [[1,1,1], [2,0,0], [2,2,0], [3,1,1], [2,2,2], [4,0,0], [1,0,0], [2,1,1], [2,2,1]],
   "lattice_parameter_bounds_angstrom": [3.45, 3.75],
   "zero_shift_bounds_deg": [-0.35, 0.35],
   "peak_position_tolerance_deg": 0.075,
+  "instrument_fwhm_deg": 0.12,
+  "shape_factor": 0.9,
   "outlier_tolerance": 0.08,
   "peaks": [
-    {"id": "p111", "two_theta_deg": 43.477, "intensity": 100.0},
-    {"id": "p200", "two_theta_deg": 50.613, "intensity": 70.0},
-    {"id": "p220", "two_theta_deg": 74.310, "intensity": 45.0},
-    {"id": "p311", "two_theta_deg": 90.120, "intensity": 22.0},
-    {"id": "p-outlier", "two_theta_deg": 61.000, "intensity": 6.0}
+    {"id": "p111", "two_theta_deg": 43.477, "fwhm_deg": 0.298, "intensity": 100.0},
+    {"id": "p200", "two_theta_deg": 50.613, "fwhm_deg": 0.310, "intensity": 70.0},
+    {"id": "p220", "two_theta_deg": 74.310, "fwhm_deg": 0.342, "intensity": 45.0},
+    {"id": "p311", "two_theta_deg": 90.120, "fwhm_deg": 0.390, "intensity": 22.0},
+    {"id": "secondary", "two_theta_deg": 61.000, "fwhm_deg": 0.190, "intensity": 6.0}
   ]
 }

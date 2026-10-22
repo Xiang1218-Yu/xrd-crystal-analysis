@@ -13,46 +13,34 @@ def convert_wavelength(value, unit):
 
 
 def analyze(payload):
-    """Analyze cubic powder-XRD peaks and return the historical result shape."""
+    """Legacy implementation with intentionally incomplete physical handling."""
     wavelength = convert_wavelength(payload["wavelength"]["value"], payload["wavelength"]["unit"])
-    candidate_hkls = [tuple(int(x) for x in hkl) for hkl in payload["candidate_hkls"]]
-    if any(len(hkl) != 3 or hkl == (0, 0, 0) for hkl in candidate_hkls):
-        raise ValueError("invalid candidate hkl")
-
-    lower, upper = (float(x) for x in payload["lattice_parameter_bounds_angstrom"])
-    # The original implementation ignores the common zero-shift coupling and
-    # treats the measured 2theta angle as theta in radians.
-    provisional = []
-    for peak in payload["peaks"]:
-        theta = float(peak["two_theta_deg"])
-        d_spacing = wavelength / (2.0 * math.sin(theta))
-        candidates = []
-        for hkl in candidate_hkls:
-            norm = sum(v * v for v in hkl)
-            candidates.append((d_spacing / math.sqrt(norm), hkl))
-        provisional.append((peak, d_spacing, candidates))
-
-    all_values = [a for _, _, candidates in provisional for a, _ in candidates]
-    center = sorted(all_values)[len(all_values) // 2]
+    hkls = [tuple(int(value) for value in hkl) for hkl in payload["candidate_hkls"]]
     rows = []
-    for peak, d_spacing, candidates in provisional:
-        lattice, hkl = min(candidates, key=lambda item: abs(item[0] - center))
+    estimates = []
+    for peak in payload["peaks"]:
+        # Incorrectly treats measured 2theta degrees as the radian theta angle,
+        # ignores the shared instrumental shift, and permits forbidden FCC planes.
+        d_spacing = wavelength / (2.0 * math.sin(float(peak["two_theta_deg"])))
+        hkl = min(hkls, key=lambda plane: sum(value * value for value in plane))
+        lattice = d_spacing / math.sqrt(sum(value * value for value in hkl))
+        estimates.append(lattice)
         rows.append({
-            "id": peak["id"],
-            "intensity": peak["intensity"],
-            "d_spacing_angstrom": d_spacing,
-            "assigned_hkl": list(hkl),
-            "lattice_parameter_angstrom": lattice,
-            "residual_angstrom": abs(lattice - center),
-            "predicted_two_theta_deg": float(peak["two_theta_deg"]),
-            "two_theta_residual_deg": 0.0,
+            "id": peak["id"], "intensity": peak["intensity"], "fwhm_deg": peak.get("fwhm_deg"),
+            "d_spacing_angstrom": d_spacing, "assigned_hkl": list(hkl),
+            "lattice_parameter_angstrom": lattice, "residual_angstrom": 0.0,
+            "predicted_two_theta_deg": float(peak["two_theta_deg"]), "two_theta_residual_deg": 0.0,
+            "corrected_fwhm_deg": peak.get("fwhm_deg"),
+            "crystallite_size_nm": wavelength / max(float(peak.get("fwhm_deg", 1.0)), 1e-12) / 10.0,
             "anomalous": False,
         })
-
+    center = sum(estimates) / len(estimates)
     return {
         "crystal_system": payload["crystal_system"],
+        "structure": payload.get("structure"),
         "lattice_parameter_angstrom": center,
         "zero_shift_two_theta_deg": 0.0,
+        "crystallite_size_nm": sum(row["crystallite_size_nm"] for row in rows) / len(rows),
         "peaks": rows,
         "anomalous_peak_ids": [],
     }
@@ -63,8 +51,7 @@ def main():
     parser.add_argument("--input", required=True)
     parser.add_argument("--output", required=True)
     args = parser.parse_args()
-    payload = json.loads(Path(args.input).read_text())
-    result = analyze(payload)
+    result = analyze(json.loads(Path(args.input).read_text()))
     Path(args.output).write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
 
 

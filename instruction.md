@@ -1,49 +1,93 @@
-# 含零点偏移的粉末 X 射线衍射联合索引修复
+# 面心立方金属粉末 XRD 相一致性与晶粒尺寸分析器修复
 
-你接手的是一个用于分析立方晶系粉末 X 射线衍射（XRD）峰位的 Python 工具。仪器记录的峰位除了来自布拉格定律，还可能带有一个对所有峰相同的 `2θ` 零点偏移。程序需要从包含离群峰的测量数据中，**联合**估计晶格常数、零点偏移和每个峰的晶面指数。
+你接手的是一个用于金属粉末 X 射线衍射（XRD）快速质控的 Python 工具。实验室使用 Cu Kα 辐射测量候选面心立方（FCC）金属粉末，并希望程序能按主相模型完成峰索引、仪器校正、异常峰识别和相干衍射域尺寸估计。
 
-请在保留现有命令行接口和已有 JSON 字段结构兼容的前提下修复程序。以下命令必须继续可用：
+当前实现保留了旧版命令行和 JSON 结构，但其物理计算、结构选择规则和峰展宽处理不正确。请修复程序，使它满足以下科学约束和接口约定。完成后，下面的命令必须继续可用：
 
 ```bash
 python3 src/xrd_analyzer.py --input examples/peaks.json --output /tmp/xrd-result.json
 ```
 
-输入数据由固定物理模型生成，可复现，但不代表真实实验采集记录。
+输入数据由固定物理模型生成、可复现，但不代表真实实验采集记录。
 
 ## 输入约定
 
-- `wavelength` 是一个对象，包含数值 `value` 和单位 `unit`。支持 `angstrom`、`nm`、`pm`，内部计算必须统一为 Å。
-- `peaks` 中每个元素至少包含 `id`、`two_theta_deg` 和 `intensity`。`two_theta_deg` 是仪器记录的 2θ（角度制）。强度只用于保留原始观测，不可用来跳过或改变几何计算。
-- `candidate_hkls` 是候选晶面指数数组；每项由三个非负整数组成，`(0, 0, 0)` 无效。
-- `crystal_system` 固定为 `cubic`；`lattice_parameter_bounds_angstrom` 是晶格常数的闭区间。
-- `zero_shift_bounds_deg` 是共同仪器零点偏移 `δ` 的闭区间，单位为度。生成数据遵循：`observed_2theta = ideal_2theta + δ`。
-- `peak_position_tolerance_deg` 是单峰预测 2θ 残差的绝对容差，用于判定异常峰。
-- 既有 `outlier_tolerance` 字段必须继续接受，用于与旧输入兼容；新输入的异常判定以 `peak_position_tolerance_deg` 为准。
+- `wavelength` 包含数值 `value` 和单位 `unit`。支持 `angstrom`、`nm`、`pm`；内部物理计算统一使用 Å。
+- `crystal_system` 固定为 `cubic`；`structure` 固定为 `fcc`，表示样品主相遵循面心立方反射选择规则。
+- `peaks` 中每项至少包含 `id`、`two_theta_deg`、`fwhm_deg` 和 `intensity`。前两个量和 FWHM 都以 2θ 的度数表示；强度只作原样保留，不能替代结构或几何判定。
+- `candidate_hkls` 是候选晶面指数数组。每项由三个非负整数组成；`(0, 0, 0)` 无效。
+- `lattice_parameter_bounds_angstrom` 是主相晶格常数的闭区间。
+- `zero_shift_bounds_deg` 是所有峰共享的仪器 2θ 零点偏移 `δ` 的闭区间。生成数据符合：`observed_2theta = ideal_2theta + δ`。
+- `peak_position_tolerance_deg` 是预测仪器峰位的绝对残差容差。
+- `instrument_fwhm_deg` 是同一峰位附近的仪器 FWHM，单位为 2θ 度数。
+- `shape_factor` 是 Scherrer 公式形状因子；未给出时使用 `0.9`。
+- 既有 `outlier_tolerance` 字段必须继续接受以兼容旧输入；新输入的异常判定以 `peak_position_tolerance_deg` 为准。
 
 ## 输出约定
 
-输出 JSON 必须保留原有字段，并新增/满足以下字段：
+输出 JSON 必须保留已有公开字段，并满足：
 
-- `crystal_system`：原样保留；
-- `lattice_parameter_angstrom`：仅由非异常峰给出的公共晶格常数估计；
-- `zero_shift_two_theta_deg`：估计的共同 2θ 零点偏移；
-- `peaks`：与输入顺序一一对应，每项保留 `id`、`intensity`，并包含：
+- `crystal_system`、`structure`：原样保留输入值；
+- `lattice_parameter_angstrom`：仅由主相非异常峰得到的公共晶格常数；
+- `zero_shift_two_theta_deg`：估计的共同仪器 2θ 零点偏移；
+- `crystallite_size_nm`：由可用主相非异常峰汇总的相干衍射域尺寸，单位 nm；没有可用峰时为 `null`；
+- `peaks`：与输入顺序一一对应，保留 `id`、`intensity`、`fwhm_deg`，并包含：
   - `d_spacing_angstrom`；
-  - `assigned_hkl`：长度为 3 的整数数组；
-  - `lattice_parameter_angstrom`：该峰按最终索引、校正零点偏移得到的候选晶格常数；
-  - `residual_angstrom`：该候选与公共晶格常数的绝对差；
-  - `predicted_two_theta_deg`：最终公共模型对该晶面的预测仪器 2θ（包含估计零点偏移）；
+  - `assigned_hkl`：长度为 3 的整数数组；若无法索引可为 `null`；
+  - `lattice_parameter_angstrom`；
+  - `residual_angstrom`；
+  - `predicted_two_theta_deg`：公共主相模型预测的仪器 2θ，包含估计的零点偏移；
   - `two_theta_residual_deg`：记录峰位与预测峰位的绝对差；
-  - `anomalous`：布尔值。
-- `anomalous_peak_ids`：全部异常峰 ID，顺序与输入一致。
+  - `corrected_fwhm_deg`：仪器展宽扣除后的样品展宽；无有效结果时为 `null`；
+  - `crystallite_size_nm`：单峰 Scherrer 尺寸；无有效结果时为 `null`；
+  - `anomalous`：布尔值；
+- `anomalous_peak_ids`：所有异常峰 ID，顺序与输入一致。
 
 ## 科学与行为约束
 
-1. 布拉格定律为 `λ = 2d sin(θ)`，取一级衍射。仪器字段是 2θ；反算 `d` 前，必须先用估计的 `δ` 校正仪器 2θ，再除以 2 得到 θ，并将角度转换为弧度。
-2. 对立方晶系，`1/d² = (h²+k²+l²)/a²`，故候选晶格常数为 `a = d × sqrt(h²+k²+l²)`。正向预测时应使用该关系和布拉格定律，最后再加上 `δ` 得到仪器 2θ。
-3. 不得独立地为每个峰选择局部最优晶面后再平均。应在 `lattice_parameter_bounds_angstrom` 与 `zero_shift_bounds_deg` 内寻找能使最多有效峰同时一致的公共模型；候选峰索引、晶格常数和零点偏移必须联合确定。
-4. 使用最终公共模型计算每个峰的预测 2θ。若其绝对峰位残差严格大于 `peak_position_tolerance_deg`，则该峰为异常；异常峰不可参与最终公共晶格常数和零点偏移估计。
-5. 波长改为物理等价的 `nm` 或 `pm` 输入时，晶格常数、零点偏移、峰索引和异常判定应保持等价。
-6. 不得通过硬编码示例中的峰 ID、数值或预期输出，删除输入峰，或跳过异常峰计算来规避约束。
+### 1. FCC 结构选择规则
 
-请保持现有公开函数和命令行参数兼容，不引入联网下载的运行时依赖。完成后至少执行语法检查，并自行验证正、负零点偏移、不同波长单位与多个异常峰情形。
+主相是 FCC。只有 `(h, k, l)` **全为奇数或全为偶数**时，反射才被允许；混合奇偶性的候选晶面不可分配给 FCC 主相峰。例如 `(1,1,1)`、`(2,0,0)`、`(2,2,0)`、`(3,1,1)` 可用，而 `(1,0,0)`、`(2,1,1)`、`(2,2,1)` 不可用。
+
+### 2. 联合峰位模型
+
+一级衍射遵循 `λ = 2d sin(θ)`。仪器记录的是 2θ，因此对给定零点偏移应先计算：
+
+```text
+θ = radians((observed_2theta - δ) / 2)
+```
+
+立方晶系满足：
+
+```text
+1/d² = (h² + k² + l²)/a²
+a = d × sqrt(h² + k² + l²)
+```
+
+不得逐峰独立选择局部最优晶面后直接平均。应在给定晶格常数范围、零点偏移范围和 FCC 允许反射集合中寻找一个公共模型，使最多有效峰能被同一 `a` 和 `δ` 解释。
+
+### 3. 异常峰
+
+用最终公共模型预测每个峰的仪器 2θ。若 `abs(observed_2theta - predicted_2theta) > peak_position_tolerance_deg`，则该峰为异常。不能分配允许 FCC 反射、校正后无有效布拉格角或候选晶格常数越界的峰同样为异常。异常峰不能参与顶层晶格常数、零点偏移或尺寸估计，但仍必须出现在结果中。
+
+### 4. 仪器展宽校正与 Scherrer 尺寸
+
+仅对已索引的非异常主相峰计算尺寸。`fwhm_deg` 和 `instrument_fwhm_deg` 都是 2θ 的角度宽度，计算前必须转为弧度。按高斯近似：
+
+```text
+β_sample = sqrt(β_observed² - β_instrument²)
+```
+
+如果 `β_observed <= β_instrument`，该峰没有可用的正样品展宽，`corrected_fwhm_deg` 和该峰的 `crystallite_size_nm` 都必须为 `null`；不得强行写为零、无穷大或任意有限数。
+
+对有效峰使用 Scherrer 公式：
+
+```text
+D = K × λ / (β_sample × cos(θ))
+```
+
+其中 `K` 为 `shape_factor`，`λ` 为 Å，`β_sample` 与 `θ` 都为弧度；输出时将 Å 转为 nm。顶层尺寸应为有效主相非异常峰尺寸的稳健汇总，异常峰和不可校正展宽峰不可拉偏结果。
+
+### 5. 单位与兼容性
+
+同一物理波长分别表示为 Å、nm 或 pm 时，晶格常数、零点偏移、峰索引、异常判定和尺寸应在数值容差内等价。请保留公开函数和命令行参数兼容，不引入需要联网下载的运行时依赖，也不得硬编码示例峰 ID、数值或预期输出。
