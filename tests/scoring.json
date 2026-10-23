@@ -1,0 +1,104 @@
+{
+  "schema_version": 1,
+  "weight_policy": {
+    "version": 1,
+    "basis": "business_priority",
+    "core_min_share": 0.6
+  },
+  "gate_tests": [
+    "test_xrd_analyzer.py::test_common_lattice_parameter_for_positive_shift",
+    "test_xrd_analyzer.py::test_top_level_size_is_median_of_usable_main_phase_peaks"
+  ],
+  "tests": {
+    "test_xrd_analyzer.py::test_output_contract_and_order": {
+      "weight": 0.075,
+      "priority": "core",
+      "rationale": "输出契约和输入顺序是题面规定的公共接口。"
+    },
+    "test_xrd_analyzer.py::test_common_positive_zero_shift_is_recovered": {
+      "weight": 0.075,
+      "priority": "core",
+      "rationale": "联合估计正零点偏移是题面要求的公共模型行为。"
+    },
+    "test_xrd_analyzer.py::test_fcc_allowed_peaks_receive_expected_indices": {
+      "weight": 0.075,
+      "priority": "core",
+      "rationale": "FCC 消光规则决定允许的晶面索引。"
+    },
+    "test_xrd_analyzer.py::test_forbidden_fcc_reflections_are_never_assigned": {
+      "weight": 0.075,
+      "priority": "core",
+      "rationale": "禁止混合奇偶性反射是 FCC 结构选择的核心约束。"
+    },
+    "test_xrd_analyzer.py::test_common_negative_zero_shift_is_recovered": {
+      "weight": 0.075,
+      "priority": "core",
+      "rationale": "负零点偏移与晶格常数必须由同一公共模型联合恢复。"
+    },
+    "test_xrd_analyzer.py::test_no_fcc_allowed_candidate_is_rejected": {
+      "weight": 0.04,
+      "priority": "auxiliary",
+      "rationale": "无 FCC 允许候选时必须拒收且不留下输出副作用。"
+    },
+    "test_xrd_analyzer.py::test_residual_only_nearby_peak_is_anomalous": {
+      "weight": 0.04,
+      "priority": "auxiliary",
+      "rationale": "仅按峰位残差识别异常峰是题面规定的判定边界。"
+    },
+    "test_xrd_analyzer.py::test_nm_wavelength_is_physically_equivalent_to_angstrom": {
+      "weight": 0.04,
+      "priority": "auxiliary",
+      "rationale": "nm 与 Å 的物理等价性验证单位换算。"
+    },
+    "test_xrd_analyzer.py::test_pm_wavelength_is_physically_equivalent_to_angstrom": {
+      "weight": 0.04,
+      "priority": "auxiliary",
+      "rationale": "pm 与 Å 的物理等价性验证单位换算。"
+    },
+    "test_xrd_analyzer.py::test_unit_case_matches_independent_physical_baseline": {
+      "weight": 0.04,
+      "priority": "auxiliary",
+      "rationale": "独立物理基线核对联合模型和尺寸数值。"
+    },
+    "test_xrd_analyzer.py::test_gaussian_instrument_broadening_is_subtracted_in_radians": {
+      "weight": 0.075,
+      "priority": "core",
+      "rationale": "高斯仪器展宽扣除和弧度换算是尺寸估计核心。"
+    },
+    "test_xrd_analyzer.py::test_scherrer_size_uses_sample_broadening_and_bragg_angle": {
+      "weight": 0.075,
+      "priority": "core",
+      "rationale": "Scherrer 公式的样品展宽和布拉格角口径是核心。"
+    },
+    "test_xrd_analyzer.py::test_equal_or_smaller_instrument_width_returns_json_null": {
+      "weight": 0.04,
+      "priority": "auxiliary",
+      "rationale": "无正样品展宽时必须输出 JSON null。"
+    },
+    "test_xrd_analyzer.py::test_secondary_peak_is_anomalous_and_retained_in_output": {
+      "weight": 0.075,
+      "priority": "core",
+      "rationale": "异常峰不得参与主相汇总但必须保留在输出。"
+    },
+    "test_xrd_analyzer.py::test_input_order_is_preserved_when_peaks_are_reordered": {
+      "weight": 0.04,
+      "priority": "auxiliary",
+      "rationale": "输入顺序保持是公开输出契约的一部分。"
+    },
+    "test_xrd_analyzer.py::test_zero_wavelength_rejection_preserves_existing_output_and_leaves_no_temp_file": {
+      "weight": 0.04,
+      "priority": "auxiliary",
+      "rationale": "零波长拒收必须保持既有输出且不残留临时文件。"
+    },
+    "test_xrd_analyzer.py::test_nonpositive_or_nonfinite_wavelength_is_rejected_without_side_effects": {
+      "weight": 0.04,
+      "priority": "auxiliary",
+      "rationale": "非正/非有限波长拒收必须保持既有输出且不残留临时文件。"
+    },
+    "test_xrd_analyzer.py::test_unwritable_output_path_is_rejected_without_partial_file": {
+      "weight": 0.04,
+      "priority": "auxiliary",
+      "rationale": "输出路径不可写时必须拒收且不产生半截文件。"
+    }
+  }
+}
