@@ -102,7 +102,10 @@ def size_case_result():
 
 
 def test_output_contract_and_order():
-    """题面原文：“`peaks`：与输入顺序一一对应，保留 `id`、`intensity`、`fwhm_deg`。”"""
+    """Case ID: XRD-E2-01
+    题面原文：“输出 JSON 必须保留已有公开字段”，且“`peaks`：与输入顺序一一对应，保留 `id`、`intensity`、`fwhm_deg`”。
+    行为：输出保留顶层系统与结构字段、输入峰顺序及题面列出的逐峰公开字段。
+    """
     data = payload()
     result = run(data)
     required = {"id", "intensity", "fwhm_deg", "d_spacing_angstrom", "assigned_hkl", "lattice_parameter_angstrom", "residual_angstrom", "predicted_two_theta_deg", "two_theta_residual_deg", "corrected_fwhm_deg", "crystallite_size_nm", "anomalous"}
@@ -113,20 +116,29 @@ def test_output_contract_and_order():
 
 
 def test_common_lattice_parameter_for_positive_shift():
-    """题面原文：“`lattice_parameter_angstrom`：仅由主相非异常峰得到的公共晶格常数。”"""
+    """Case ID: XRD-E2-02
+    题面原文：“`lattice_parameter_angstrom`：仅由主相非异常峰得到的公共晶格常数”。
+    行为：全部峰符合同一 FCC 模型时恢复公共晶格常数，且不把正常峰标为异常。
+    """
     result = baseline_result()
     assert result["lattice_parameter_angstrom"] == pytest.approx(3.61, abs=0.015)
     assert result["anomalous_peak_ids"] == []
 
 
 def test_common_positive_zero_shift_is_recovered():
-    """题面原文：“`zero_shift_two_theta_deg`：估计的共同仪器 2θ 零点偏移。”"""
+    """Case ID: XRD-E2-03
+    题面原文：“`zero_shift_two_theta_deg`：估计的共同仪器 2θ 零点偏移”。
+    行为：正零点偏移由全部主相峰联合估计得到，而不是逐峰独立估计。
+    """
     result = baseline_result()
     assert result["zero_shift_two_theta_deg"] == pytest.approx(0.18, abs=0.015)
 
 
 def test_fcc_allowed_peaks_receive_expected_indices():
-    """题面原文：“只有 `(h, k, l)` 全为奇数或全为偶数时，反射才被允许。”"""
+    """Case ID: XRD-E2-04
+    题面原文：“只有 `(h, k, l)` **全为奇数或全为偶数**时，反射才被允许”。
+    行为：四个符合 FCC 选择规则的峰获得对应晶面指数且均未被误判为异常。
+    """
     table = rows(baseline_result())
     observed = [(table[name]["assigned_hkl"], table[name]["anomalous"]) for name in PEAK_IDS]
     expected = [(hkl, False) for hkl in ALLOWED[:4]]
@@ -134,7 +146,10 @@ def test_fcc_allowed_peaks_receive_expected_indices():
 
 
 def test_forbidden_fcc_reflections_are_never_assigned():
-    """题面原文：“混合奇偶性的候选晶面不可分配给 FCC 主相峰。”"""
+    """Case ID: XRD-E2-05
+    题面原文：“混合奇偶性的候选晶面不可分配给 FCC 主相峰”。
+    行为：混合奇偶性的候选即使峰位接近也不得成为任一峰的晶面分配结果。
+    """
     result = run(payload(lattice=3.735, shift=-0.27))
     forbidden = {tuple(hkl) for hkl in FORBIDDEN}
     assert all(tuple(row["assigned_hkl"]) not in forbidden for row in result["peaks"] if row["assigned_hkl"] is not None)
@@ -142,14 +157,20 @@ def test_forbidden_fcc_reflections_are_never_assigned():
 
 
 def test_common_negative_zero_shift_is_recovered():
-    """题面原文：“生成数据符合：`observed_2theta = ideal_2theta + δ`。”"""
+    """Case ID: XRD-E2-06
+    题面原文：“生成数据符合：`observed_2theta = ideal_2theta + δ`”，并应联合恢复一个公共模型。
+    行为：负零点偏移与晶格常数由同一公共 FCC 模型联合恢复。
+    """
     result = run(payload(lattice=3.735, shift=-0.27))
     assert result["lattice_parameter_angstrom"] == pytest.approx(3.735, abs=0.018)
     assert result["zero_shift_two_theta_deg"] == pytest.approx(-0.27, abs=0.018)
 
 
 def test_no_fcc_allowed_candidate_is_rejected():
-    """题面原文：“混合奇偶性的候选晶面不可分配给 FCC 主相峰。”"""
+    """Case ID: XRD-E2-07
+    题面原文：“混合奇偶性的候选晶面不可分配给 FCC 主相峰”，且“`candidate_hkls` 中不存在 FCC 允许反射时”必须拒收。
+    行为：仅有混合奇偶性候选时非零退出，`stderr` 含固定标识，既有输出和目录副作用保持不变。
+    """
     data = payload()
     data["candidate_hkls"] = FORBIDDEN
     with tempfile.TemporaryDirectory() as directory:
@@ -174,7 +195,10 @@ def test_no_fcc_allowed_candidate_is_rejected():
 
 
 def test_residual_only_nearby_peak_is_anomalous():
-    """题面原文：“若 `abs(observed_2theta - predicted_2theta) > peak_position_tolerance_deg`，则该峰为异常。”"""
+    """Case ID: XRD-E2-08
+    题面原文：“若 `abs(observed_2theta - predicted_2theta) > peak_position_tolerance_deg`，则该峰为异常”。
+    行为：峰位残差超过容差的邻近次峰被标为异常，并列入 `anomalous_peak_ids`。
+    """
     nearby = {
         "id": "nearby-secondary",
         "two_theta_deg": round(forward(3.61, [2, 0, 0], 0.18) + 0.16, 5),
@@ -190,7 +214,10 @@ def test_residual_only_nearby_peak_is_anomalous():
 
 
 def test_nm_wavelength_is_physically_equivalent_to_angstrom():
-    """题面原文：“同一物理波长分别表示为 Å、nm 或 pm 时，晶格常数、零点偏移、峰索引、异常判定和尺寸应在数值容差内等价。”"""
+    """Case ID: XRD-E2-09
+    题面原文：“同一物理波长分别表示为 Å、nm 或 pm 时，晶格常数、零点偏移、峰索引、异常判定和尺寸应在数值容差内等价”。
+    行为：以 nm 表示的同一波长恢复与 Å 表示一致的晶格常数、零点偏移和晶面索引。
+    """
     angstrom = run(payload(lattice=3.58, shift=0.23, unit="angstrom"))
     nanometre = run(payload(lattice=3.58, shift=0.23, unit="nm"))
     assert nanometre["lattice_parameter_angstrom"] == pytest.approx(angstrom["lattice_parameter_angstrom"], abs=1e-6)
@@ -199,7 +226,10 @@ def test_nm_wavelength_is_physically_equivalent_to_angstrom():
 
 
 def test_pm_wavelength_is_physically_equivalent_to_angstrom():
-    """题面原文：“同一物理波长分别表示为 Å、nm 或 pm 时，晶格常数、零点偏移、峰索引、异常判定和尺寸应在数值容差内等价。”"""
+    """Case ID: XRD-E2-10
+    题面原文：“同一物理波长分别表示为 Å、nm 或 pm 时，晶格常数、零点偏移、峰索引、异常判定和尺寸应在数值容差内等价”。
+    行为：以 pm 表示的同一波长恢复与 Å 表示一致的尺寸和异常判定。
+    """
     angstrom = run(payload(lattice=3.58, shift=0.23, unit="angstrom"))
     picometre = run(payload(lattice=3.58, shift=0.23, unit="pm"))
     assert picometre["crystallite_size_nm"] == pytest.approx(angstrom["crystallite_size_nm"], abs=1e-6)
@@ -207,7 +237,10 @@ def test_pm_wavelength_is_physically_equivalent_to_angstrom():
 
 
 def test_unit_case_matches_independent_physical_baseline():
-    """题面原文：“计算前必须转为弧度”，且输出尺寸“单位 nm”。"""
+    """Case ID: XRD-E2-11
+    题面原文：“`fwhm_deg` 和 `instrument_fwhm_deg` 都是 2θ 的角度宽度，计算前必须转为弧度”，且顶层尺寸“单位 nm”。
+    行为：独立物理基线核对公共晶格常数、零点偏移和顶层尺寸数值。
+    """
     lattice, shift = 3.58, 0.23
     fwhms = (0.30, 0.31, 0.34, 0.39)
     result = run(payload(lattice=lattice, shift=shift, unit="angstrom", fwhms=fwhms))
@@ -218,7 +251,10 @@ def test_unit_case_matches_independent_physical_baseline():
 
 
 def test_gaussian_instrument_broadening_is_subtracted_in_radians():
-    """题面原文：“`β_sample = sqrt(β_observed² - β_instrument²)`，计算前必须转为弧度。”"""
+    """Case ID: XRD-E2-12
+    题面原文：“`β_sample = sqrt(β_observed² - β_instrument²)`”，且“`fwhm_deg` 和 `instrument_fwhm_deg` 都是 2θ 的角度宽度，计算前必须转为弧度”。
+    行为：逐峰扣除仪器展宽，并以弧度计算后转回角度输出。
+    """
     table = rows(size_case_result())
     observed = [table[name]["corrected_fwhm_deg"] for name in PEAK_IDS]
     expected = [corrected_fwhm(fwhm) for fwhm in (0.30, 0.32, 0.35, 0.40)]
@@ -226,7 +262,10 @@ def test_gaussian_instrument_broadening_is_subtracted_in_radians():
 
 
 def test_scherrer_size_uses_sample_broadening_and_bragg_angle():
-    """题面原文：“`D = K × λ / (β_sample × cos(θ))`，输出时将 Å 转为 nm。”"""
+    """Case ID: XRD-E2-13
+    题面原文：“其中 `K` 为 `shape_factor`，`λ` 为 Å，`β_sample` 与 `θ` 都为弧度；输出时将 Å 转为 nm”。
+    行为：单峰 Scherrer 尺寸使用扣除仪器展宽后的样品展宽和布拉格角，并输出 nm。
+    """
     result = size_case_result()
     table = rows(result)
     expected = expected_size_nm(0.30, table["p111"]["predicted_two_theta_deg"], -0.11)
@@ -235,7 +274,10 @@ def test_scherrer_size_uses_sample_broadening_and_bragg_angle():
 
 
 def test_equal_or_smaller_instrument_width_returns_json_null():
-    """题面原文：“如果 `β_observed <= β_instrument`，该峰的校正展宽与尺寸必须为 `null`。”"""
+    """Case ID: XRD-E2-14
+    题面原文：“如果 `β_observed <= β_instrument`，该峰没有可用的正样品展宽，`corrected_fwhm_deg` 和该峰的 `crystallite_size_nm` 都必须为 `null`”。
+    行为：观测展宽等于或小于仪器展宽时，两个数值字段均输出 JSON null。
+    """
     equal = {"id": "equal-width", "two_theta_deg": round(forward(3.64, [2, 2, 2], -0.11), 5), "fwhm_deg": 0.12, "intensity": 8.0}
     smaller = {"id": "smaller-width", "two_theta_deg": round(forward(3.64, [4, 0, 0], -0.11), 5), "fwhm_deg": 0.10, "intensity": 7.0}
     table = rows(run(payload(lattice=3.64, shift=-0.11, extras=(equal, smaller))))
@@ -246,7 +288,10 @@ def test_equal_or_smaller_instrument_width_returns_json_null():
 
 
 def test_secondary_peak_is_anomalous_and_retained_in_output():
-    """题面原文：“异常峰不能参与顶层晶格常数、零点偏移或尺寸估计，但仍必须出现在结果中。”"""
+    """Case ID: XRD-E2-15
+    题面原文：“异常峰不能参与顶层晶格常数、零点偏移或尺寸估计，但仍必须出现在结果中”。
+    行为：异常次峰保留在输出和异常 ID 列表中，但不参与主相汇总。
+    """
     result = size_case_result()
     table = rows(result)
     assert result["anomalous_peak_ids"] == ["secondary"]
@@ -255,7 +300,10 @@ def test_secondary_peak_is_anomalous_and_retained_in_output():
 
 
 def test_top_level_size_is_median_of_usable_main_phase_peaks():
-    """题面原文：“顶层尺寸应为有效主相非异常峰尺寸的稳健汇总。”"""
+    """Case ID: XRD-E2-16
+    题面原文：“顶层尺寸应为有效主相非异常峰尺寸的稳健汇总，异常峰和不可校正展宽峰不可拉偏结果”。
+    行为：顶层尺寸等于可用主相峰单峰尺寸的中位数，不可校正峰不参与汇总。
+    """
     result = size_case_result()
     table = rows(result)
     usable = sorted(table[name]["crystallite_size_nm"] for name in PEAK_IDS)
@@ -264,7 +312,10 @@ def test_top_level_size_is_median_of_usable_main_phase_peaks():
 
 
 def test_input_order_is_preserved_when_peaks_are_reordered():
-    """题面原文：“`peaks`：与输入顺序一一对应。”"""
+    """Case ID: XRD-E2-17
+    题面原文：“`peaks`：与输入顺序一一对应”。
+    行为：反转输入峰序后，输出顺序随输入反转且公共晶格常数仍正确恢复。
+    """
     data = payload()
     data["peaks"] = list(reversed(data["peaks"]))
     result = run(data)
@@ -273,7 +324,10 @@ def test_input_order_is_preserved_when_peaks_are_reordered():
 
 
 def test_zero_wavelength_rejection_preserves_existing_output_and_leaves_no_temp_file():
-    """题面原文：“`value` 为 `0` 时必须拒绝，且不得创建、覆盖或留下半截的目标输出 JSON。”"""
+    """Case ID: XRD-E2-18
+    题面原文：“`value` 必须是有限正数；值为 `0`、负数、NaN 或无穷大时必须拒绝”，且“不得创建、覆盖或留下半截的目标输出 JSON”。
+    行为：零波长非零退出，`stderr` 含固定标识，既有输出字节不变且不残留临时文件。
+    """
     data = payload()
     data["wavelength"]["value"] = 0
 
@@ -302,10 +356,18 @@ def test_zero_wavelength_rejection_preserves_existing_output_and_leaves_no_temp_
 @pytest.mark.parametrize(
     "invalid_value",
     [-1.0, float("nan"), float("inf"), float("-inf")],
-    ids=["negative", "nan", "positive-infinity", "negative-infinity"],
+    ids=[
+        "XRD-E2-19-negative",
+        "XRD-E2-19-nan",
+        "XRD-E2-19-positive-infinity",
+        "XRD-E2-19-negative-infinity",
+    ],
 )
 def test_nonpositive_or_nonfinite_wavelength_is_rejected_without_side_effects(invalid_value):
-    """题面原文：“`value` 必须是有限正数；负数、NaN 或无穷大时必须拒绝，且不得创建、覆盖或留下半截的目标输出 JSON。”"""
+    """Case ID: XRD-E2-19
+    题面原文：“`value` 必须是有限正数；值为 `0`、负数、NaN 或无穷大时必须拒绝”，且“不得创建、覆盖或留下半截的目标输出 JSON”。
+    行为：负数、NaN 和正负无穷均非零退出，`stderr` 含固定标识，既有输出字节不变且不残留临时文件。
+    """
     data = payload()
     data["wavelength"]["value"] = invalid_value
 

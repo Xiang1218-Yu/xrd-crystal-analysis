@@ -44,6 +44,13 @@ python3 src/xrd_analyzer.py --input examples/peaks.json --output /tmp/xrd-result
 - `anomalous_peak_ids`：所有异常峰 ID，顺序与输入一致。
 - 输入校验、物理拟合或 JSON 序列化失败时，命令行必须以非零状态退出，且不得创建、覆盖或留下半截的目标输出 JSON。成功写出时应先完整生成结果并以原子替换方式提交目标文件。
 
+### 命令行输出通道
+
+成功结果只通过 `--output` 指向的文件提交，标准输出 `stdout` 不承载业务结果，题面不要求其内容。输入校验、物理拟合或 JSON 序列化失败时，进程必须以非零状态退出，并允许通过标准错误 `stderr` 输出诊断信息；测试可以读取并断言该通道。以下两类拒收必须在 `stderr` 中包含对应的固定标识：
+
+- `wavelength.value` 为 `0`、负数、NaN 或无穷大时：`wavelength must be a finite positive number`；
+- `candidate_hkls` 中不存在 FCC 允许反射时：`no FCC-allowed candidate hkl`。
+
 ## 科学与行为约束
 
 ### 1. FCC 结构选择规则
