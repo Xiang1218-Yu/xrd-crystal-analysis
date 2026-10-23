@@ -1,4 +1,5 @@
 schema_version = "1.3"
+allow_internet = true
 
 [task]
 name = "local/xrd-crystal-analysis"
@@ -23,6 +24,6 @@ timeout_sec = 300
 
 [metadata]
 difficulty = "expert"
-category = "chemistry-materials"
-tags = ["python", "x-ray-diffraction", "cubic-crystal", "scientific-computing"]
+category = "D"
+tags = ["化学与材料", "python", "x-ray-diffraction", "cubic-crystal", "scientific-computing"]
 expert_time_estimate = "4h"

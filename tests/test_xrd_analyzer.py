@@ -271,6 +271,7 @@ def test_input_order_is_preserved_when_peaks_are_reordered():
     assert [row["id"] for row in result["peaks"]] == [peak["id"] for peak in data["peaks"]]
     assert result["lattice_parameter_angstrom"] == pytest.approx(3.61, abs=0.015)
 
+
 def test_zero_wavelength_rejection_preserves_existing_output_and_leaves_no_temp_file():
     """题面原文：“`value` 为 `0` 时必须拒绝，且不得创建、覆盖或留下半截的目标输出 JSON。”"""
     data = payload()
@@ -283,6 +284,7 @@ def test_zero_wavelength_rejection_preserves_existing_output_and_leaves_no_temp_
         sentinel = '{"status":"previous-valid-result"}\n'
         source.write_text(json.dumps(data), encoding="utf-8")
         output.write_text(sentinel, encoding="utf-8")
+        before = {path.name: path.read_bytes() for path in root.iterdir()}
 
         completed = subprocess.run(
             [sys.executable, str(analyzer()), "--input", str(source), "--output", str(output)],
@@ -294,4 +296,36 @@ def test_zero_wavelength_rejection_preserves_existing_output_and_leaves_no_temp_
         assert completed.returncode != 0
         assert "wavelength must be a finite positive number" in completed.stderr
         assert output.read_text(encoding="utf-8") == sentinel
-        assert not list(root.glob(".result.json.*.tmp"))
+        assert {path.name: path.read_bytes() for path in root.iterdir()} == before
+
+
+@pytest.mark.parametrize(
+    "invalid_value",
+    [-1.0, float("nan"), float("inf"), float("-inf")],
+    ids=["negative", "nan", "positive-infinity", "negative-infinity"],
+)
+def test_nonpositive_or_nonfinite_wavelength_is_rejected_without_side_effects(invalid_value):
+    """题面原文：“`value` 必须是有限正数；负数、NaN 或无穷大时必须拒绝，且不得创建、覆盖或留下半截的目标输出 JSON。”"""
+    data = payload()
+    data["wavelength"]["value"] = invalid_value
+
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        source = root / "invalid-wavelength.json"
+        output = root / "result.json"
+        sentinel = b'{"status":"previous-valid-result"}\n'
+        source.write_text(json.dumps(data), encoding="utf-8")
+        output.write_bytes(sentinel)
+        before = {path.name: path.read_bytes() for path in root.iterdir()}
+
+        completed = subprocess.run(
+            [sys.executable, str(analyzer()), "--input", str(source), "--output", str(output)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        assert completed.returncode != 0
+        assert "wavelength must be a finite positive number" in completed.stderr
+        assert output.read_bytes() == sentinel
+        assert {path.name: path.read_bytes() for path in root.iterdir()} == before
